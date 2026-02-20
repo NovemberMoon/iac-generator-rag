@@ -1,0 +1,14 @@
+venv/
+.venv/
+pycache/
+*.pyc
+
+.env
+
+vector_db/
+
+.DS_Store
+Thumbs.db
+
+output/.yml
+output/.yaml
