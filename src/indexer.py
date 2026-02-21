@@ -14,7 +14,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
-# Импортируем пути и логгер из конфигурации
 from config import DOCS_DIR, DB_DIR
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,6 @@ def create_vector_db() -> None:
     logger.info("Запуск процесса индексации документации.")
     
     try:
-        # 1. Загрузка документов
         logger.info(f"Поиск Markdown-файлов в директории {DOCS_DIR}...")
         loader = DirectoryLoader(
             str(DOCS_DIR), 
@@ -45,7 +43,6 @@ def create_vector_db() -> None:
 
         logger.info(f"Успешно загружено документов: {len(documents)}")
 
-        # 2. Разбиение текста на чанки
         logger.info("Разбиение документов на текстовые фрагменты...")
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -55,11 +52,9 @@ def create_vector_db() -> None:
         chunks = text_splitter.split_documents(documents)
         logger.info(f"Сформировано текстовых фрагментов (чанков): {len(chunks)}")
 
-        # 3. Инициализация модели эмбеддингов
         logger.info("Загрузка модели эмбеддингов (all-MiniLM-L6-v2)...")
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-        # 4. Сохранение в векторную БД
         if os.path.exists(DB_DIR):
             logger.info("Удаление предыдущей версии векторной базы данных...")
             shutil.rmtree(DB_DIR)
