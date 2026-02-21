@@ -14,7 +14,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
-from config import DOCS_DIR, DB_DIR
+from src.config import DOCS_DIR, DB_DIR
 
 logger = logging.getLogger(__name__)
 

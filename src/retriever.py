@@ -10,7 +10,7 @@ import logging
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
-from config import DB_DIR
+from src.config import DB_DIR
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,8 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from config import GROQ_API_KEY
-from retriever import get_relevant_context
+from src.config import GROQ_API_KEY
+from src.retriever import get_relevant_context
 
 logger = logging.getLogger(__name__)
 
