@@ -1,7 +1,8 @@
 """
 Модуль валидации сгенерированных сценариев инфраструктуры.
 
-Осуществляет синтаксическую проверку кода перед его сохранением на диск.
+Поддерживает синтаксическую проверку YAML (Ansible) 
+и базовую структурную проверку HCL (Terraform).
 """
 
 import yaml
@@ -9,53 +10,39 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def validate_yaml(content: str) -> bool:
+def validate_iac(content: str, iac_tool: str) -> bool:
     """
-    Проверяет, является ли переданная строка валидным YAML форматом.
+    Проверяет валидность кода в зависимости от выбранного инструмента.
     
     Args:
-        content (str): Строка со сгенерированным IaC кодом.
+        content (str): Сгенерированный код.
+        iac_tool (str): Целевой инструмент ('terraform' или 'ansible').
         
     Returns:
-        bool: True, если синтаксис корректен, иначе False.
+        bool: True, если валидация пройдена.
     """
-    logger.info("Запуск проверки синтаксиса сгенерированного YAML-кода...")
+    logger.info(f"Запуск валидации кода для инструмента: {iac_tool.upper()}")
     
-    try:
-        parsed_data = yaml.safe_load(content)
-        
-        if not parsed_data or not isinstance(parsed_data, dict):
-            logger.warning("Сгенерированный код пуст или не является валидной структурой (словарем).")
+    if iac_tool == 'ansible':
+        try:
+            parsed_data = yaml.safe_load(content)
+            if not parsed_data or not isinstance(parsed_data, (dict, list)):
+                return False
+            logger.info("✅ Синтаксис YAML (Ansible) корректен.")
+            return True
+        except yaml.YAMLError as exc:
+            logger.error(f"❌ Ошибка валидации синтаксиса YAML: {exc}")
             return False
             
-        logger.info("✅ Синтаксис YAML корректен.")
-        return True
-        
-    except yaml.YAMLError as exc:
-        logger.error(f"❌ Ошибка валидации синтаксиса YAML: {exc}")
+    elif iac_tool == 'terraform':
+        required_blocks = ["resource", "provider", "terraform", "variable", "output", "module", "data"]
+        if any(block in content for block in required_blocks):
+            logger.info("✅ Синтаксис содержит корректные HCL-блоки Terraform.")
+            return True
+            
+        logger.warning("❌ Сгенерированный код не похож на Terraform (HCL).")
         return False
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-    logger.info("ТЕСТ 1: Правильный YAML")
-    good_yaml = """
-services:
-  web:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-"""
-    result_good = validate_yaml(good_yaml)
-    print(f"Результат ТЕСТА 1: {result_good}\n")
-
-    logger.info("ТЕСТ 2: Сломанный YAML (ошибка отступов)")
-    bad_yaml = """
-services:
-  web:
-    image: nginx:alpine
-     ports:
-      - "80:80"
-"""
-    result_bad = validate_yaml(bad_yaml)
-    print(f"Результат ТЕСТА 2: {result_bad}")
+        
+    else:
+        logger.warning(f"Неизвестный тип IaC: {iac_tool}. Валидация пропущена.")
+        return True

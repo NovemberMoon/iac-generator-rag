@@ -15,19 +15,20 @@ from src.retriever import get_relevant_context
 
 logger = logging.getLogger(__name__)
 
-def generate_iac_script(user_query: str) -> str:
+def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
     """
-    Генерирует сценарий развертывания (IaC) на основе запроса и базы знаний RAG.
+    Генерирует сценарий (IaC) на основе запроса и базы знаний RAG.
     
     Args:
-        user_query (str): Описание требуемой инфраструктуры от пользователя.
+        user_query (str): Описание требуемой инфраструктуры.
+        iac_tool (str): Инструмент IaC (по умолчанию 'terraform').
         
     Returns:
-        str: Сгенерированный конфигурационный файл.
+        str: Сгенерированный код конфигурации.
     """
-    logger.info("Инициализация процесса генерации IaC-сценария...")
+    logger.info(f"Инициализация генерации для инструмента: {iac_tool.upper()}")
     
-    context = get_relevant_context(user_query, k=2)
+    context = get_relevant_context(user_query, k=3)
     
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
@@ -35,16 +36,17 @@ def generate_iac_script(user_query: str) -> str:
         temperature=0
     )
     
-    system_prompt = """Ты опытный DevOps-инженер. 
-                    Твоя задача — писать конфигурационные файлы инфраструктуры как кода (IaC), например Docker Compose или Ansible.
+    system_prompt = """Ты опытный DevOps-инженер и системный архитектор. 
+                    Твоя задача – писать конфигурационные файлы инфраструктуры как кода (IaC) для инструмента: {iac_tool}.
 
-                    Используй СТРОГО следующую техническую документацию для написания кода:
+                    Используй СТРОГО следующую техническую документацию:
                     {context}
 
                     Правила:
-                    1. Выдавай ТОЛЬКО код. Никаких приветствий, пояснений и текста "Вот ваш код:".
+                    1. Выдавай ТОЛЬКО валидный код для {iac_tool}. Никаких приветствий, пояснений и текста "Вот ваш код:".
                     2. Не используй разметку markdown (тройные кавычки), выдавай чистый текст файла.
-                    3. Если в документации нет ответа, опирайся на свои базовые знания DevOps.
+                    3. Если это terraform, пиши HCL код. Если ansible - пиши YAML.
+                    4. Если ответа нет в документации, используй свои знания best practices.
                     """
 
     prompt = ChatPromptTemplate.from_messages([
@@ -58,7 +60,8 @@ def generate_iac_script(user_query: str) -> str:
     try:
         response = chain.invoke({
             "context": context,
-            "query": user_query
+            "query": user_query,
+            "iac_tool": iac_tool
         })
         logger.info("Генерация успешно завершена.")
         return response
@@ -66,8 +69,3 @@ def generate_iac_script(user_query: str) -> str:
     except Exception as e:
         logger.error(f"Ошибка при обращении к LLM: {str(e)}")
         raise RuntimeError(f"Сбой компонента Generator: {str(e)}")
-
-if __name__ == "__main__":
-    test_query = "Напиши docker-compose для базы данных PostgreSQL и веб-сервера Nginx"
-    result = generate_iac_script(test_query)
-    print(f"\nСГЕНЕРИРОВАННЫЙ КОД:\n\n{result}")

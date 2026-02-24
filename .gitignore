@@ -1,6 +1,6 @@
 venv/
 .venv/
-pycache/
+__pycache__/
 *.pyc
 
 .env
@@ -10,5 +10,4 @@ vector_db/
 .DS_Store
 Thumbs.db
 
-output/.yml
-output/.yaml
+output/
