@@ -15,6 +15,15 @@ from src.retriever import get_relevant_context
 
 logger = logging.getLogger(__name__)
 
+def clean_markdown(text: str) -> str:
+    """Удаляет markdown-разметку из ответа нейросети."""
+    lines = text.strip().split('\n')
+    if lines and lines[0].strip().startswith("```"):
+        lines.pop(0)
+    if lines and lines[-1].strip().startswith("```"):
+        lines.pop()
+    return "\n".join(lines).strip()
+
 def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
     """
     Генерирует сценарий (IaC) на основе запроса и базы знаний RAG.
@@ -37,16 +46,18 @@ def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
     )
     
     system_prompt = """Ты опытный DevOps-инженер и системный архитектор. 
-                    Твоя задача – писать конфигурационные файлы инфраструктуры как кода (IaC) для инструмента: {iac_tool}.
+                    Твоя задача — писать конфигурационные файлы инфраструктуры как кода (IaC) для инструмента: {iac_tool}.
 
-                    Используй СТРОГО следующую техническую документацию:
+                    Используй СТРОГО следующую техническую документацию для написания кода:
+                    ====================
                     {context}
+                    ====================
 
-                    Правила:
-                    1. Выдавай ТОЛЬКО валидный код для {iac_tool}. Никаких приветствий, пояснений и текста "Вот ваш код:".
-                    2. Не используй разметку markdown (тройные кавычки), выдавай чистый текст файла.
-                    3. Если это terraform, пиши HCL код. Если ansible - пиши YAML.
-                    4. Если ответа нет в документации, используй свои знания best practices.
+                    ПРАВИЛА ГЕНЕРАЦИИ:
+                    1. ЦЕЛЕВОЙ ПРОВАЙДЕР: Определи облачного провайдера (например, Yandex Cloud, AWS, Azure) из запроса пользователя. Если пользователь не указал провайдера явно, используй того, который описывается в переданном контексте документации.
+                    2. ФОРМАТ: Выведи АБСОЛЮТНО ЧИСТЫЙ текст файла. СТРОГО ЗАПРЕЩАЕТСЯ использовать markdown-разметку (никаких ```hcl или ```yaml).
+                    3. ЧИСТОТА КОДА: ЗАПРЕЩЕНО писать любые слова, комментарии или приветствия до или после кода. Выдавай ТОЛЬКО код конфигурации.
+                    4. ДОСТОВЕРНОСТЬ: Опирайся на примеры из контекста. Если нужного ресурса нет в документации, используй свои знания (best practices) для выбранного провайдера.
                     """
 
     prompt = ChatPromptTemplate.from_messages([
@@ -64,7 +75,9 @@ def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
             "iac_tool": iac_tool
         })
         logger.info("Генерация успешно завершена.")
-        return response
+
+        cleaned_response = clean_markdown(response)
+        return cleaned_response
         
     except Exception as e:
         logger.error(f"Ошибка при обращении к LLM: {str(e)}")
