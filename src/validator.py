@@ -1,11 +1,11 @@
 """
 Модуль валидации сгенерированных сценариев инфраструктуры.
 
-Поддерживает синтаксическую проверку YAML (Ansible) 
-и базовую структурную проверку HCL (Terraform).
+Поддерживает синтаксическую проверку YAML (Ansible) и HCL (Terraform)
 """
 
 import yaml
+import hcl2
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,22 +27,26 @@ def validate_iac(content: str, iac_tool: str) -> bool:
         try:
             parsed_data = yaml.safe_load(content)
             if not parsed_data or not isinstance(parsed_data, (dict, list)):
+                logger.warning("Сгенерированный код пуст или не является валидной структурой.")
                 return False
-            logger.info("✅ Синтаксис YAML (Ansible) корректен.")
+            logger.info("Синтаксис YAML (Ansible) корректен.")
             return True
         except yaml.YAMLError as exc:
-            logger.error(f"❌ Ошибка валидации синтаксиса YAML: {exc}")
+            logger.error(f"Ошибка парсинга YAML: {exc}")
             return False
-            
+
     elif iac_tool == 'terraform':
-        required_blocks = ["resource", "provider", "terraform", "variable", "output", "module", "data"]
-        if any(block in content for block in required_blocks):
-            logger.info("✅ Синтаксис содержит корректные HCL-блоки Terraform.")
+        try:
+            parsed_data = hcl2.loads(content)
+            if not parsed_data:
+                logger.warning("Сгенерированный код HCL пуст или не содержит структур данных.")
+                return False
+            logger.info("Синтаксис HCL (Terraform) корректен.")
             return True
-            
-        logger.warning("❌ Сгенерированный код не похож на Terraform (HCL).")
-        return False
-        
+        except Exception as exc:
+            logger.error(f"Ошибка парсинга HCL (Terraform): {exc}")
+            return False
+
     else:
         logger.warning(f"Неизвестный тип IaC: {iac_tool}. Валидация пропущена.")
         return True
