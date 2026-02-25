@@ -45,8 +45,8 @@ def create_vector_db() -> None:
 
         logger.info("Разбиение документов на текстовые фрагменты...")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=2000,
+            chunk_overlap=300,
             separators=["\n\n", "\n", " ", ""]
         )
         chunks = text_splitter.split_documents(documents)
