@@ -19,10 +19,13 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    logger.error("Переменная окружения GROQ_API_KEY не найдена.")
-    raise ValueError("Отсутствует GROQ_API_KEY в файле .env")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").lower()
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "llama-3.3-70b-versatile")
+
+CUSTOM_LLM_URL = os.getenv("CUSTOM_LLM_URL")
+
+if LLM_PROVIDER == "custom" and not CUSTOM_LLM_URL:
+    logger.warning("Выбран CUSTOM провайдер, но CUSTOM_LLM_URL не задан в .env")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DOCS_DIR = BASE_DIR / "docs"

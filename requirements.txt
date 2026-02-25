@@ -5,6 +5,10 @@ langchain-community>=0.3.0
 
 # LLM Providers
 langchain-groq>=0.2.0
+langchain-openai>=0.1.0
+# Примечание: langchain-google-genai, langchain-anthropic, langchain-mistralai 
+# устанавливаются пользователем по желанию, если он выберет их в .env
+
 
 # Vector Database and Embeddings
 chromadb>=0.5.0

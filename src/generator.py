@@ -5,12 +5,15 @@
 формирует системный промпт и обращается к API LLM для генерации IaC-кода.
 """
 
+import os
 import logging
-from langchain_groq import ChatGroq
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain.chat_models import init_chat_model
+from langchain_openai import ChatOpenAI
 
-from src.config import GROQ_API_KEY
+from src.config import LLM_PROVIDER, LLM_MODEL_NAME, CUSTOM_LLM_URL
 from src.retriever import get_relevant_context
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,22 @@ def clean_markdown(text: str) -> str:
         lines.pop()
     return "\n".join(lines).strip()
 
+def get_llm():
+    """Универсальная фабрика для инициализации языковой модели."""
+    if LLM_PROVIDER == "custom":
+        return ChatOpenAI(
+            base_url=CUSTOM_LLM_URL,
+            api_key=os.getenv("CUSTOM_LLM_KEY", "not-needed"),
+            model_name=LLM_MODEL_NAME,
+            temperature=0
+        )
+    else:
+        return init_chat_model(
+            model=LLM_MODEL_NAME,
+            model_provider=LLM_PROVIDER,
+            temperature=0
+        )
+
 def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
     """
     Генерирует сценарий (IaC) на основе запроса и базы знаний RAG.
@@ -35,15 +54,11 @@ def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
     Returns:
         str: Сгенерированный код конфигурации.
     """
-    logger.info(f"Инициализация генерации для инструмента: {iac_tool.upper()}")
+    logger.info(f"Генерация для {iac_tool.upper()} (Провайдер: {LLM_PROVIDER.upper()}, Модель: {LLM_MODEL_NAME})")
     
     context = get_relevant_context(user_query, k=3)
     
-    llm = ChatGroq(
-        api_key=GROQ_API_KEY,
-        model_name="llama-3.3-70b-versatile",
-        temperature=0
-    )
+    llm = get_llm()
     
     system_prompt = """Ты опытный DevOps-инженер и системный архитектор. 
                     Твоя задача — писать конфигурационные файлы инфраструктуры как кода (IaC) для инструмента: {iac_tool}.
@@ -67,7 +82,6 @@ def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
     
     chain = prompt | llm | StrOutputParser()
     
-    logger.info("Отправка промпта в LLM-провайдер...")
     try:
         response = chain.invoke({
             "context": context,
