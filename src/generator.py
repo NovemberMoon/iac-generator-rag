@@ -11,7 +11,6 @@ import logging
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain.chat_models import init_chat_model
-from langchain_openai import ChatOpenAI
 
 from src.config import LLM_PROVIDER, LLM_MODEL_NAME, CUSTOM_LLM_URL
 from src.retriever import get_relevant_context
@@ -30,11 +29,18 @@ def clean_markdown(text: str) -> str:
 def get_llm():
     """Универсальная фабрика для инициализации языковой модели."""
     if LLM_PROVIDER == "custom":
+        import httpx
+        from langchain_openai import ChatOpenAI
+        
+        verify_ssl = os.getenv("CUSTOM_LLM_VERIFY_SSL", "true").lower() != "false"
+        http_client = httpx.Client(verify=verify_ssl) if not verify_ssl else None
+
         return ChatOpenAI(
             base_url=CUSTOM_LLM_URL,
             api_key=os.getenv("CUSTOM_LLM_KEY", "not-needed"),
             model_name=LLM_MODEL_NAME,
-            temperature=0
+            temperature=0,
+            http_client=http_client
         )
     else:
         return init_chat_model(
@@ -68,10 +74,10 @@ def generate_iac_script(user_query: str, iac_tool: str = "terraform") -> str:
                     {context}
                     ====================
 
-                    ПРАВИЛА ГЕНЕРАЦИИ:
+                    ПРАВИЛА ГЕНЕРАЦИИ (КРИТИЧЕСКИ ВАЖНО):
                     1. ЦЕЛЕВОЙ ПРОВАЙДЕР: Определи облачного провайдера (например, Yandex Cloud, AWS, Azure) из запроса пользователя. Если пользователь не указал провайдера явно, используй того, который описывается в переданном контексте документации.
                     2. ФОРМАТ: Выведи АБСОЛЮТНО ЧИСТЫЙ текст файла. СТРОГО ЗАПРЕЩАЕТСЯ использовать markdown-разметку (никаких ```hcl или ```yaml).
-                    3. ЧИСТОТА КОДА: ЗАПРЕЩЕНО писать любые слова, поясняющие комментарии (начинающиеся с # или //) или приветствия до или после кода. Выдавай ТОЛЬКО код конфигурации.
+                    3. ЧИСТОТА КОДА: ЗАПРЕЩЕНО писать ЛЮБЫЕ комментарии ВНУТРИ кода (строки с '#' или '//'). ЗАПРЕЩЕНО писать приветствия или пояснения текста до/после кода. Выдавай ТОЛЬКО код конфигурации.
                     4. ДОСТОВЕРНОСТЬ (КРИТИЧНО): Опирайся на примеры из контекста. Внимательно изучи контекст на наличие внутренних регламентов. Если нужного ресурса нет в документации, используй свои знания (best practices) для выбранного провайдера.
                     """
 
