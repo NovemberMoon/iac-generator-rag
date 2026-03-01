@@ -1,28 +1,29 @@
-# Core LangChain
-langchain>=0.3.0
-langchain-core>=0.3.0
-langchain-community>=0.3.0
+# --- Ядро RAG и LangChain ---
+langchain==1.2.10
+langchain-core==1.2.16
+langchain-community==0.4.1
 
-# LLM Providers
-langchain-groq>=0.2.0
-langchain-openai>=0.1.0
-# Примечание: langchain-google-genai, langchain-anthropic, langchain-mistralai 
-# устанавливаются пользователем по желанию, если он выберет их в .env
+# --- Векторная база данных и Эмбеддинги ---
+chromadb==1.5.1
+langchain-chroma==1.1.0
+langchain-huggingface==1.2.0
+sentence-transformers==5.2.3
 
+# --- API и Web UI ---
+fastapi==0.133.0
+uvicorn==0.41.0
+requests==2.32.5
+streamlit==1.54.0
 
-# Vector Database and Embeddings
-chromadb>=0.5.0
-langchain-chroma>=0.1.4
-langchain-huggingface>=0.1.0
-sentence-transformers>=3.0.0
+# --- Утилиты и Валидация ---
+python-dotenv==1.2.1
+pyyaml==6.0.3
+python-hcl2==7.3.1
 
-# API and Web UI
-fastapi>=0.103.0
-uvicorn>=0.23.2
-requests>=2.31.0
-streamlit>=1.30.0
-
-# Utilities
-python-dotenv>=1.0.1
-pyyaml>=6.0.1
-python-hcl2>=4.3.0
+# --- Опциональные библиотеки провайдеров (раскомментировать нужное) ---
+# langchain-openai==1.1.10      # Для OpenAI, DeepSeek и любых custom сетей
+# langchain-groq==1.1.2         # Для Groq
+# langchain-mistralai==1.1.1    # Для Mistral
+# langchain-gigachat==0.3.12    # Для Сбер GigaChat
+# yandexcloud==0.379.0          # Для YandexGPT (в связке с langchain-community)
+# и др. в зависимости от выбора провайдера
