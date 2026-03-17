@@ -9,7 +9,7 @@
 import os
 import shutil
 import logging
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader, BSHTMLLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -28,14 +28,22 @@ def create_vector_db() -> None:
     logger.info("Запуск процесса индексации документации.")
     
     try:
-        logger.info(f"Поиск Markdown-файлов в директории {DOCS_DIR}...")
-        loader = DirectoryLoader(
-            str(DOCS_DIR), 
-            glob="**/*.md", 
-            loader_cls=TextLoader,
-            loader_kwargs={'autodetect_encoding': True}
-        )
-        documents = loader.load()
+        logger.info(f"Поиск файлов документации в директории {DOCS_DIR}...")
+        
+        loaders = [
+            DirectoryLoader(str(DOCS_DIR), glob="**/*.md", loader_cls=TextLoader, loader_kwargs={'encoding': 'utf-8'}),
+            DirectoryLoader(str(DOCS_DIR), glob="**/*.pdf", loader_cls=PyPDFLoader),
+            DirectoryLoader(str(DOCS_DIR), glob="**/*.html", loader_cls=BSHTMLLoader, loader_kwargs={'open_encoding': 'utf-8', 'bs_kwargs': {'features': 'html.parser'}})
+        ]
+
+        documents = []
+        for loader in loaders:
+            try:
+                docs = loader.load()
+                documents.extend(docs)
+                logger.info(f"Загружено {len(docs)} документов формата {loader.glob}")
+            except Exception as e:
+                logger.warning(f"Ошибка загрузки файлов по маске {loader.glob}: {e}")
 
         if not documents:
             logger.warning("Директория с документацией пуста. Индексация прервана.")
@@ -52,8 +60,8 @@ def create_vector_db() -> None:
         chunks = text_splitter.split_documents(documents)
         logger.info(f"Сформировано текстовых фрагментов (чанков): {len(chunks)}")
 
-        logger.info("Загрузка модели эмбеддингов (all-MiniLM-L6-v2)...")
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        logger.info("Загрузка модели эмбеддингов (paraphrase-multilingual-MiniLM-L12-v2)...")
+        embeddings = HuggingFaceEmbeddings(model_name="paraphrase-multilingual-MiniLM-L12-v2")
 
         if os.path.exists(DB_DIR):
             logger.info("Удаление предыдущей версии векторной базы данных...")

@@ -1,50 +1,83 @@
-"""
-Модуль поиска (Retriever) для системы RAG.
+"""Модуль семантического поиска и извлечения контекста.
 
-Отвечает за подключение к существующей векторной базе данных Chroma,
-векторизацию пользовательского запроса и поиск наиболее релевантных 
-фрагментов документации на основе косинусного сходства векторов.
+Реализует функционал поиска релевантных фрагментов документации
+с использованием векторной базы данных Chroma и ручного алгоритма Query Expansion.
 """
 
 import logging
-from langchain_huggingface import HuggingFaceEmbeddings
+
 from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from src.config import DB_DIR
 
 logger = logging.getLogger(__name__)
 
-def get_relevant_context(query: str, k: int = 3) -> str:
-    """
-    Выполняет семантический поиск по векторной базе данных.
-    
+
+def get_relevant_context(query: str, llm=None, k: int = 3) -> str:
+    """Извлекает релевантный контекст из векторной базы данных.
+
     Args:
-        query (str): Запрос пользователя.
-        k (int): Количество возвращаемых релевантных фрагментов.
-        
+        query (str): Исходный запрос пользователя.
+        llm: Экземпляр языковой модели для генерации подзапросов (опционально).
+        k (int): Количество извлекаемых фрагментов на каждый запрос.
+
     Returns:
-        str: Объединенный текст найденных фрагментов.
+        str: Объединенный текст извлеченных фрагментов документации.
+             Возвращает пустую строку в случае критической ошибки.
     """
-    logger.info(f"Выполнение поиска по базе для запроса: '{query}'")
-    
     try:
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="paraphrase-multilingual-MiniLM-L12-v2"
+        )
         vector_db = Chroma(
-            persist_directory=str(DB_DIR), 
+            persist_directory=str(DB_DIR),
             embedding_function=embeddings
         )
-        
-        docs = vector_db.similarity_search(query, k=k)
-        
-        if not docs:
-            logger.warning("Поиск не дал результатов.")
-            return ""
-            
-        logger.info(f"Найдено {len(docs)} релевантных фрагментов документации.")
-        context = "\n\n".join([doc.page_content for doc in docs])
-        
+
+        if llm is None:
+            docs = vector_db.similarity_search(query, k=k)
+        else:
+            logger.info("Запуск алгоритма расширения запроса (Query Expansion)...")
+            expansion_prompt = """Сгенерируй 3 альтернативных поисковых запроса для базы знаний корпоративных стандартов.
+                                Исходный запрос пользователя: {query}
+
+                                ПРАВИЛА ГЕНЕРАЦИИ ЗАПРОСОВ:
+                                1. Первый запрос должен фокусироваться на политиках информационной безопасности и ограничениях для запрошенных компонентов.
+                                2. Второй запрос должен искать административные и корпоративные стандарты.
+                                3. Третий запрос должен быть направлен на технические требования и архитектурную связность.
+
+                                Выведи строго 3 запроса. Каждый запрос с новой строки. Без нумерации, дефисов и дополнительных слов.
+                                """
+
+            try:
+                response = llm.invoke(expansion_prompt)
+                content = response.content if hasattr(response, 'content') else str(response)
+                queries = content.strip().split('\n')
+            except Exception as e:
+                logger.warning(f"Ошибка генерации подзапросов: {str(e)}")
+                queries = []
+
+            queries.append(query)
+
+            all_docs = []
+            seen_contents = set()
+
+            for q in queries:
+                if not q.strip():
+                    continue
+                found_docs = vector_db.similarity_search(q.strip(), k=k)
+                for d in found_docs:
+                    if d.page_content not in seen_contents:
+                        seen_contents.add(d.page_content)
+                        all_docs.append(d)
+
+            docs = all_docs
+            logger.info(f"Успех! Извлечено {len(docs)} уникальных фрагментов базы знаний.")
+
+        context = "\n\n---\n\n".join([doc.page_content for doc in docs])
         return context
-        
+
     except Exception as e:
-        logger.error(f"Ошибка при поиске в векторной базе: {str(e)}")
+        logger.error(f"Ошибка при извлечении контекста: {str(e)}")
         raise RuntimeError(f"Сбой компонента Retriever: {str(e)}")
